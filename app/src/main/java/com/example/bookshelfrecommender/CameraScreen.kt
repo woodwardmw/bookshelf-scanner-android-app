@@ -36,6 +36,7 @@ fun CameraScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var hasCameraPermission by remember { mutableStateOf(false) }
     val books = remember { mutableStateOf<List<Book>>(emptyList()) }
+    val isLoading = remember { mutableStateOf(false) } // Loading state
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -60,7 +61,11 @@ fun CameraScreen(modifier: Modifier = Modifier) {
         if (hasCameraPermission) {
             CameraPreview(
                 modifier = Modifier.weight(1f),
-                onPhotoCaptured = { photoFile -> uploadPhoto(context, photoFile, books) }
+                onPhotoCaptured = { photoFile ->
+                    books.value = emptyList() // Clear previous recommendations
+                    isLoading.value = true   // Show loading spinner
+                    uploadPhoto(context, photoFile, books, isLoading)
+                }
             )
         } else {
             Text(
@@ -69,15 +74,19 @@ fun CameraScreen(modifier: Modifier = Modifier) {
             )
         }
 
-        if (books.value.isNotEmpty()) {
+        // Show spinner if loading, otherwise display recommendations
+        if (isLoading.value) {
+            CircularProgressIndicator(modifier = Modifier.padding(16.dp)) // Loading spinner
+        } else if (books.value.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Text("Recommendations:", style = MaterialTheme.typography.headlineSmall)
-            books.value.forEach { book: Book ->
-                Text("- $book")
+            books.value.forEach { book ->
+                Text("- ${book.title} by ${book.author}")
             }
         }
     }
 }
+
 
 @Composable
 fun CameraPreview(
@@ -86,7 +95,10 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    val imageCapture = remember { ImageCapture.Builder().build() }
+    val imageCapture = ImageCapture.Builder()
+//        .setTargetRotation(context.display?.rotation ?: Surface.ROTATION_0)
+        .build()
+
     val executor = remember { Executors.newSingleThreadExecutor() }
 
     Box(
@@ -160,19 +172,36 @@ fun CameraPreview(
     }
 }
 
-private fun uploadPhoto(context: android.content.Context, photoFile: File, books: MutableState<List<Book>>) {
+private fun uploadPhoto(
+    context: android.content.Context,
+    photoFile: File,
+    books: MutableState<List<Book>>,
+    isLoading: MutableState<Boolean>
+) {
     Log.d("uploadPhoto", "Preparing to upload photo: ${photoFile.absolutePath}")
 
     val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
     val photoPart = MultipartBody.Part.createFormData("photo", photoFile.name, requestFile)
+
+    // Set loading to true before starting the upload
+    isLoading.value = true
 
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val response = ApiClient.apiService.uploadPhoto(photoPart)
             withContext(Dispatchers.Main) {
                 if (response.success) {
-                    // Assuming your API returns Book objects, update this line:
-                    books.value = response.books.map { Book(it.title, it.description, it.rating, it.keywords, it.similar_books) }
+                    books.value = response.books.map {
+                        Book(
+                            title = it.title,
+                            author = it.author ?: "Unknown", // Handle null author gracefully
+                            description = it.description,
+                            rating = it.rating,
+                            keywords = it.keywords,
+                            seriesPosition = it.seriesPosition ?: "",
+                            similarBooks = it.similarBooks
+                        )
+                    }
                     Toast.makeText(context, "Uploaded successfully!", Toast.LENGTH_SHORT).show()
                     Log.d("uploadPhoto", "Upload successful: ${response.books}")
                 } else {
@@ -182,9 +211,28 @@ private fun uploadPhoto(context: android.content.Context, photoFile: File, books
             }
         } catch (e: Exception) {
             Log.e("uploadPhoto", "Error uploading photo", e)
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "An error occurred during upload", Toast.LENGTH_SHORT).show()
+            }
+        } finally {
+            // Set loading to false once the upload completes, whether successful or not
+            withContext(Dispatchers.Main) {
+                isLoading.value = false
+            }
         }
     }
 }
 
 
-
+//val display = context.display
+//display?.let {
+//    val rotationListener = object : DisplayManager.DisplayListener {
+//        override fun onDisplayAdded(displayId: Int) {}
+//        override fun onDisplayRemoved(displayId: Int) {}
+//        override fun onDisplayChanged(displayId: Int) {
+//            imageCapture.targetRotation = display.rotation
+//        }
+//    }
+//    val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+//    displayManager.registerDisplayListener(rotationListener, null)
+//}

@@ -118,8 +118,10 @@ fun BookItem(book: Book) {
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
-        Text(text = book.title, style = MaterialTheme.typography.bodyLarge)
-        Text(text = "Rating: ${book.rating}", style = MaterialTheme.typography.bodySmall)
-        Text(text = book.description, style = MaterialTheme.typography.bodyMedium)
+        Text(text = book.title ?: "Unknown Title", style = MaterialTheme.typography.bodyLarge)
+        Text(text = book.author ?: "Unknown Author(s)", style = MaterialTheme.typography.bodyMedium)
+        Text(text = book.seriesPosition ?: "", style = MaterialTheme.typography.bodyMedium)
+        Text(text = "Rating: ${book.rating}"  ?: "No rating", style = MaterialTheme.typography.bodySmall)
+        Text(text = book.description ?: "No description", style = MaterialTheme.typography.bodyMedium)
     }
 }

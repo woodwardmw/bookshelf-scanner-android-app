@@ -12,9 +12,11 @@ class BookAdapter(private val books: List<Book>) : RecyclerView.Adapter<BookAdap
 
     inner class BookViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val title: TextView = view.findViewById(R.id.title)
+        val author: TextView = view.findViewById(R.id.author)
         val description: TextView = view.findViewById(R.id.description)
         val rating: TextView = view.findViewById(R.id.rating)
         val keywords: TextView = view.findViewById(R.id.keywords)
+        val seriesPosition: TextView = view.findViewById(R.id.seriesPosition)
         val similarBooks: TextView = view.findViewById(R.id.similarBooks)
     }
 
@@ -26,11 +28,13 @@ class BookAdapter(private val books: List<Book>) : RecyclerView.Adapter<BookAdap
     override fun onBindViewHolder(holder: BookViewHolder, position: Int) {
         val book = books[position]
         holder.title.text = book.title
+        holder.author.text = book.author
         holder.description.text = book.description
         holder.rating.text = "Rating: ${book.rating}"
         holder.keywords.text = "Keywords: ${book.keywords.joinToString(", ")}"
+        holder.seriesPosition.text = "Series: ${book.seriesPosition}"
         holder.similarBooks.text = "Similar Books: ${
-            book.similar_books.joinToString { "${it.title} by ${it.author}" }
+            book.similarBooks.joinToString { "${it.title} by ${it.author}" }
         }"
     }
 
